@@ -3,32 +3,32 @@ import json
 import os
 import re
 from datetime import datetime, timezone, timedelta
+from urllib.parse import quote
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 SEEN_JOBS_FILE = "seen_jobs.json"
 
 SEARCH_QUERIES = [
-    "product manager medtech",
-    "associate product manager FMCG",
-    "product analyst healthcare",
-    "business analyst medtech",
-    "strategy analyst",
-    "strategy consultant",
-    "management consultant",
-    "GTM manager",
-    "operations manager medical devices",
-    "supply chain FMCG",
-    "business development medtech",
-    "category manager FMCG",
-    "program manager healthcare",
-    "chief of staff",
-    "sales manager medtech",
-    "market research analyst",
-    "growth analyst",
-    "consulting analyst",
-    "commercial excellence",
-    "corporate strategy",
+    "product-manager",
+    "associate-product-manager",
+    "product-analyst",
+    "business-analyst",
+    "strategy-analyst",
+    "strategy-consultant",
+    "management-consultant",
+    "gtm-manager",
+    "operations-manager",
+    "supply-chain-manager",
+    "business-development-manager",
+    "category-manager",
+    "program-manager",
+    "chief-of-staff",
+    "sales-manager",
+    "market-research-analyst",
+    "growth-analyst",
+    "consulting-analyst",
+    "commercial-excellence",
 ]
 
 INCLUDE_KEYWORDS = [
@@ -55,7 +55,6 @@ EXCLUDE_KEYWORDS = [
     "general manager", "deputy general manager", "dgm", "agm",
     "associate director", "associate vp",
     "intern", "internship", "fresher", "trainee",
-    "summer intern", "winter intern",
     "software engineer", "software developer", "developer",
     "data scientist", "machine learning", "devops", "backend",
     "frontend", "full stack", "full-stack", "qa engineer",
@@ -92,62 +91,75 @@ def save_seen_jobs(seen_jobs):
         json.dump(seen_jobs, f, indent=2)
 
 def fetch_naukri_jobs(query):
-    url = "https://www.naukri.com/jobapi/v3/search"
-    params = {
-        "noOfResults": 50,
-        "urlType": "search_by_keyword",
-        "searchType": "adv",
-        "keyword": query,
-        "location": "india",
-        "jobAge": 1,
-        "sort": "1",
-        "experienceMin": 0,
-        "experienceMax": 5,
-    }
+    # Use Naukri's public search URL format
+    url = f"https://www.naukri.com/{query}-jobs-in-india"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.naukri.com/",
-        "appid": "109",
-        "systemid": "109",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Cache-Control": "max-age=0",
     }
     try:
-        response = requests.get(url, params=params, headers=headers, timeout=20)
-        return response.json()
+        response = requests.get(url, headers=headers, timeout=20)
+        print(f"  Status: {response.status_code}, Length: {len(response.text)}")
+        return response.text
     except Exception as e:
         print(f"Error fetching Naukri '{query}': {e}")
-        return {}
+        return ""
 
-def parse_naukri_jobs(data):
+def parse_naukri_html(html):
     jobs = []
-    try:
-        job_list = data.get("jobDetails", [])
-        for job in job_list:
-            title = clean(job.get("title", ""))
-            company = clean(job.get("companyName", "Unknown"))
-            location = "India"
-            for p in job.get("placeholders", []):
-                if p.get("type") == "location":
-                    location = clean(p.get("label", "India"))
-                    break
-            url = job.get("jdURL", "") or job.get("jobUrl", "")
-            if url and not url.startswith("http"):
-                url = "https://www.naukri.com" + url
-            posted = job.get("footerPlaceholderLabel", "Recently")
 
-            if not title or not url:
-                continue
+    # Extract JSON data embedded in Naukri's page
+    json_match = re.search(r'"jobDetails"\s*:\s*(\[[\s\S]*?\])\s*,\s*"[a-z]', html)
+    if json_match:
+        try:
+            job_list = json.loads(json_match.group(1))
+            for job in job_list:
+                title = clean(job.get("title", ""))
+                company = clean(job.get("companyName", "Unknown"))
+                location = clean(job.get("placeholders", [{}])[0].get("label", "India") if job.get("placeholders") else "India")
+                url = job.get("jdURL", "")
+                if url and not url.startswith("http"):
+                    url = "https://www.naukri.com" + url
+                posted = job.get("footerPlaceholderLabel", "Recently")
+                if title and url:
+                    jobs.append({
+                        "title": title,
+                        "company": company,
+                        "location": location,
+                        "url": url,
+                        "posted": clean(str(posted)),
+                    })
+            return jobs
+        except Exception as e:
+            print(f"  JSON parse error: {e}")
 
-            jobs.append({
-                "title": title,
-                "company": company,
-                "location": location,
-                "url": url,
-                "posted": clean(str(posted)),
-            })
-    except Exception as e:
-        print(f"Parse error: {e}")
+    # Fallback: regex parse from HTML
+    title_re = re.compile(r'title="([^"]+)"[^>]*class="[^"]*title[^"]*"', re.I)
+    company_re = re.compile(r'class="[^"]*comp-name[^"]*"[^>]*>([^<]+)<', re.I)
+    location_re = re.compile(r'class="[^"]*loc[^"]*"[^>]*>([^<]+)<', re.I)
+    url_re = re.compile(r'href="(https://www\.naukri\.com/job-listings[^"]+)"', re.I)
+
+    titles = title_re.findall(html)
+    companies = company_re.findall(html)
+    locations = location_re.findall(html)
+    urls = url_re.findall(html)
+
+    for i, title in enumerate(titles):
+        if i >= len(urls):
+            break
+        jobs.append({
+            "title": clean(title),
+            "company": clean(companies[i]) if i < len(companies) else "Unknown",
+            "location": clean(locations[i]) if i < len(locations) else "India",
+            "url": urls[i],
+            "posted": "Recently",
+        })
+
     return jobs
 
 def is_relevant(job):
@@ -178,9 +190,9 @@ def main():
 
     for query in SEARCH_QUERIES:
         print(f"Fetching Naukri: '{query}'")
-        data = fetch_naukri_jobs(query)
-        jobs = parse_naukri_jobs(data)
-        print(f"  Found {len(jobs)} raw results")
+        html = fetch_naukri_jobs(query)
+        jobs = parse_naukri_html(html)
+        print(f"  Parsed {len(jobs)} jobs")
 
         for job in jobs:
             url = job["url"]
