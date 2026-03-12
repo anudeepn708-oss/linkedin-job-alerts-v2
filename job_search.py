@@ -11,26 +11,34 @@ ADZUNA_APP_KEY = os.environ.get("ADZUNA_APP_KEY")
 SEEN_JOBS_FILE = "seen_jobs.json"
 
 SEARCH_QUERIES = [
-    "product manager",
+    "product manager medtech",
     "associate product manager",
     "product analyst",
-    "business analyst",
+    "product owner",
     "strategy analyst",
     "strategy consultant",
     "management consultant",
+    "consulting analyst",
+    "associate consultant",
     "GTM manager",
-    "operations manager",
-    "supply chain manager",
-    "business development manager",
-    "category manager",
-    "program manager",
+    "go to market manager",
+    "operations manager healthcare",
+    "supply chain manager FMCG",
+    "business development manager medtech",
+    "category manager FMCG",
+    "program manager healthcare",
     "chief of staff",
-    "sales manager",
+    "sales manager medical devices",
     "market research analyst",
     "growth analyst",
-    "consulting analyst",
     "commercial excellence",
-    "corporate strategy",
+    "corporate strategy analyst",
+    "brand manager FMCG",
+    "trade marketing manager",
+    "demand planning analyst",
+    "process improvement manager",
+    "business operations manager",
+    "channel sales manager",
 ]
 
 INCLUDE_KEYWORDS = [
@@ -40,14 +48,15 @@ INCLUDE_KEYWORDS = [
     "strategy manager", "management consultant", "consulting analyst",
     "associate consultant", "business analyst", "sales manager",
     "sales operations", "sales analyst", "business development manager",
-    "gtm manager", "go-to-market manager", "marketing manager",
-    "brand manager", "category manager", "trade marketing manager",
+    "gtm manager", "go-to-market", "marketing manager",
+    "brand manager", "category manager", "trade marketing",
     "operations manager", "operations analyst", "supply chain manager",
     "supply chain analyst", "demand planning", "process improvement",
     "business operations manager", "chief of staff", "program manager",
     "project manager", "growth analyst", "market research analyst",
     "market intelligence", "commercial excellence", "kpi analyst",
     "business development", "channel sales manager", "corporate strategy",
+    "process excellence", "six sigma", "lean manager",
 ]
 
 EXCLUDE_KEYWORDS = [
@@ -66,6 +75,8 @@ EXCLUDE_KEYWORDS = [
     "driver", "field technician", "warehouse", "blue collar",
     "recruiter", "hr manager", "talent acquisition",
     "content writer", "graphic designer", "telecaller",
+    "cyber", "cybersecurity", "security manager", "network",
+    "influencer", "digital marketing manager",
 ]
 
 def clean(text):
@@ -75,6 +86,12 @@ def clean(text):
     text = text.replace("&", "and").replace("|", "-").replace("#", "")
     text = text.encode('ascii', 'ignore').decode('ascii')
     return text.strip()
+
+def make_dedup_key(title, company):
+    # Normalize title+company to catch duplicates across LinkedIn and Adzuna
+    t = re.sub(r'[^a-z0-9]', '', title.lower())
+    c = re.sub(r'[^a-z0-9]', '', company.lower())
+    return "{}__{}".format(t[:40], c[:20])
 
 def load_seen_jobs():
     if os.path.exists(SEEN_JOBS_FILE):
@@ -100,7 +117,6 @@ def fetch_adzuna_jobs(query, page=1):
     }
     try:
         response = requests.get(url, params=params, timeout=20)
-        print("  Status: {}".format(response.status_code))
         return response.json()
     except Exception as e:
         print("Error fetching Adzuna '{}': {}".format(query, e))
@@ -156,7 +172,7 @@ def send_telegram(message):
 def main():
     seen_jobs = load_seen_jobs()
     new_jobs = []
-    all_urls = set()
+    seen_keys = set(seen_jobs.keys())
 
     for query in SEARCH_QUERIES:
         print("Fetching Adzuna: '{}'".format(query))
@@ -166,16 +182,15 @@ def main():
         print("  Total available: {}, Fetched: {}".format(total, len(jobs)))
 
         for job in jobs:
-            url = job["url"]
-            if url in all_urls:
+            # Deduplicate by title+company to avoid LinkedIn overlap
+            dedup_key = make_dedup_key(job["title"], job["company"])
+            if dedup_key in seen_keys:
                 continue
-            all_urls.add(url)
-            if url in seen_jobs:
-                continue
+            seen_keys.add(dedup_key)
             if not is_relevant(job):
                 continue
             new_jobs.append(job)
-            seen_jobs[url] = datetime.now(timezone.utc).isoformat()
+            seen_jobs[dedup_key] = datetime.now(timezone.utc).isoformat()
 
     print("Total new jobs found: {}".format(len(new_jobs)))
 
