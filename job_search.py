@@ -10,73 +10,94 @@ ADZUNA_APP_ID = os.environ.get("ADZUNA_APP_ID")
 ADZUNA_APP_KEY = os.environ.get("ADZUNA_APP_KEY")
 SEEN_JOBS_FILE = "seen_jobs.json"
 
+# Sector-specific queries — role always paired with sector
 SEARCH_QUERIES = [
-    "product manager medtech",
-    "associate product manager",
-    "product analyst",
-    "product owner",
-    "strategy analyst",
+    "product manager healthcare",
+    "product manager medical devices",
+    "product manager FMCG",
+    "product manager pharma",
+    "business analyst healthcare",
+    "business analyst FMCG",
     "strategy consultant",
     "management consultant",
     "consulting analyst",
-    "associate consultant",
-    "GTM manager",
-    "go to market manager",
+    "operations consultant",
+    "strategy analyst",
+    "corporate strategy",
+    "founders office",
     "operations manager healthcare",
+    "operations manager FMCG",
     "supply chain manager FMCG",
-    "business development manager medtech",
     "category manager FMCG",
-    "program manager healthcare",
-    "chief of staff",
+    "sales manager healthcare",
     "sales manager medical devices",
-    "market research analyst",
-    "growth analyst",
-    "commercial excellence",
-    "corporate strategy analyst",
     "brand manager FMCG",
-    "trade marketing manager",
-    "demand planning analyst",
-    "process improvement manager",
-    "business operations manager",
-    "channel sales manager",
+    "market research analyst FMCG",
+    "growth analyst",
+    "business development manager healthcare",
+    "business development manager pharma",
 ]
 
-INCLUDE_KEYWORDS = [
+# Role must contain one of these
+INCLUDE_ROLES = [
     "product manager", "associate product manager", "apm",
-    "product analyst", "product operations", "product lead",
-    "product owner", "strategy analyst", "strategy consultant",
+    "product analyst", "product lead", "product owner",
+    "business analyst", "strategy analyst", "strategy consultant",
     "strategy manager", "management consultant", "consulting analyst",
-    "associate consultant", "business analyst", "sales manager",
-    "sales operations", "sales analyst", "business development manager",
-    "gtm manager", "go-to-market", "marketing manager",
-    "brand manager", "category manager", "trade marketing",
-    "operations manager", "operations analyst", "supply chain manager",
-    "supply chain analyst", "demand planning", "process improvement",
-    "business operations manager", "chief of staff", "program manager",
-    "project manager", "growth analyst", "market research analyst",
-    "market intelligence", "commercial excellence", "kpi analyst",
-    "business development", "channel sales manager", "corporate strategy",
-    "process excellence", "six sigma", "lean manager",
+    "associate consultant", "operations consultant",
+    "operations manager", "operations analyst",
+    "supply chain manager", "supply chain analyst",
+    "demand planning", "category manager",
+    "sales manager", "sales analyst",
+    "brand manager", "trade marketing",
+    "business development manager",
+    "market research analyst", "market intelligence",
+    "growth analyst", "corporate strategy",
+    "founders office", "founder's office",
+    "program manager", "project manager",
+    "process improvement", "commercial excellence",
 ]
 
+# Sectors — job title must contain at least one
+# EXCEPT for pure strategy/consulting roles which pass without sector check
+STRATEGY_ROLES = [
+    "strategy consultant", "management consultant", "consulting analyst",
+    "associate consultant", "strategy analyst", "corporate strategy",
+    "operations consultant", "founders office", "founder's office",
+    "growth analyst",
+]
+
+ALLOWED_SECTORS = [
+    "healthcare", "health care", "medical", "medtech", "med tech",
+    "pharma", "pharmaceutical", "diagnostics", "hospital", "clinical",
+    "fmcg", "consumer goods", "consumer product", "food", "beverage",
+    "retail", "nutrition", "wellness", "beauty", "personal care",
+]
+
+# Hard excludes — never pass regardless
 EXCLUDE_KEYWORDS = [
-    "senior", "sr.", " sr ", "lead ", "principal", "staff ",
-    "vp", "vice president", "director", "head of", "head -",
+    "senior", "sr.", " sr ", "lead ", "principal",
+    "vp", "vice president", "director", "head of",
     "avp", "evp", "svp", "cxo", "ceo", "coo", "cto", "cfo",
-    "general manager", "deputy general manager", "dgm", "agm",
+    "general manager", "dgm", "agm",
     "associate director", "associate vp",
     "intern", "internship", "fresher", "trainee",
     "software engineer", "software developer", "developer",
     "data scientist", "machine learning", "devops", "backend",
-    "frontend", "full stack", "full-stack", "qa engineer",
-    "test engineer", "data engineer", "mlops", "cloud engineer",
+    "frontend", "full stack", "qa engineer", "test engineer",
+    "data engineer", "cloud engineer", "it ", "information technology",
+    "technical program", "technical project", "it project",
+    "application manager", "erp", "sap", "crm developer",
     "accountant", "finance manager", "chartered accountant",
     "radiologist", "doctor", "physician", "nurse", "technician",
-    "driver", "field technician", "warehouse", "blue collar",
+    "driver", "field technician", "warehouse",
     "recruiter", "hr manager", "talent acquisition",
     "content writer", "graphic designer", "telecaller",
-    "cyber", "cybersecurity", "security manager", "network",
-    "influencer", "digital marketing manager",
+    "cyber", "cybersecurity", "network engineer",
+    "banking", "insurance", "mortgage", "loan",
+    "chief of staff",
+    "channel sales", "channel partner",
+    "influencer", "social media",
 ]
 
 def clean(text):
@@ -88,7 +109,6 @@ def clean(text):
     return text.strip()
 
 def make_dedup_key(title, company):
-    # Normalize title+company to catch duplicates across LinkedIn and Adzuna
     t = re.sub(r'[^a-z0-9]', '', title.lower())
     c = re.sub(r'[^a-z0-9]', '', company.lower())
     return "{}__{}".format(t[:40], c[:20])
@@ -131,6 +151,7 @@ def parse_adzuna_jobs(data):
             location = clean(job.get("location", {}).get("display_name", "India"))
             url = job.get("redirect_url", "")
             created = job.get("created", "")
+            category = clean(job.get("category", {}).get("label", ""))
             try:
                 dt = datetime.strptime(created[:10], "%Y-%m-%d")
                 posted = dt.strftime("%d %b %Y")
@@ -144,6 +165,7 @@ def parse_adzuna_jobs(data):
                 "location": location,
                 "url": url,
                 "posted": posted,
+                "category": category,
             })
     except Exception as e:
         print("Parse error: {}".format(e))
@@ -151,10 +173,28 @@ def parse_adzuna_jobs(data):
 
 def is_relevant(job):
     title = job["title"].lower()
-    if not any(k in title for k in INCLUDE_KEYWORDS):
-        return False
+    category = job.get("category", "").lower()
+    combined = title + " " + category
+
+    # Hard excludes first
     if any(k in title for k in EXCLUDE_KEYWORDS):
         return False
+
+    # Must match a role
+    has_role = any(k in title for k in INCLUDE_ROLES)
+    if not has_role:
+        return False
+
+    # Pure strategy/consulting roles pass without sector check
+    is_strategy = any(k in title for k in STRATEGY_ROLES)
+    if is_strategy:
+        return True
+
+    # All other roles need a sector match
+    has_sector = any(s in combined for s in ALLOWED_SECTORS)
+    if not has_sector:
+        return False
+
     return True
 
 def send_telegram(message):
@@ -182,7 +222,6 @@ def main():
         print("  Total available: {}, Fetched: {}".format(total, len(jobs)))
 
         for job in jobs:
-            # Deduplicate by title+company to avoid LinkedIn overlap
             dedup_key = make_dedup_key(job["title"], job["company"])
             if dedup_key in seen_keys:
                 continue
