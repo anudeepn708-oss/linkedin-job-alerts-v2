@@ -8,12 +8,10 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 SEEN_JOBS_FILE = "seen_jobs.json"
 
-# These queries are DIFFERENT from account 1
-# Focus: Consulting, Strategy, Startups, Ops, General MBA roles
-SEARCH_QUERIES = [
+# General strategy/consulting queries
+GENERAL_QUERIES = [
     "strategy consultant MBA India",
     "management consultant associate India",
-    "business consultant India",
     "consulting analyst India",
     "associate consultant India",
     "operations consultant India",
@@ -21,7 +19,6 @@ SEARCH_QUERIES = [
     "business strategy manager India",
     "corporate strategy India",
     "growth manager India",
-    "market entry strategy India",
     "go to market strategy India",
     "product strategy manager India",
     "business transformation India",
@@ -36,9 +33,30 @@ SEARCH_QUERIES = [
     "product launch manager pharma",
     "market access manager pharma",
     "business development pharma India",
+    "associate product manager pharma",
+    "product manager medical devices",
+]
+
+# Company-specific queries for target ortho/medtech companies
+COMPANY_QUERIES = [
+    "Meril Life Sciences",
+    "INOR implants",
+    "Biorad medisys",
+    "TTK healthcare",
+    "Sharma orthopaedics",
+    "Matryx meditech",
+    "Fortune labs medical",
+    "Narang medical",
+    "Atlas surgical",
+    "Siora surgicals",
+    "Maxx medical",
+    "Biomed healthcare",
+    "Auxein medical",
+    "NRV ortho",
 ]
 
 PAGES_PER_QUERY = 3
+PAGES_PER_COMPANY = 1  # 1 page is enough for small companies
 
 INCLUDE_KEYWORDS = [
     "product manager", "associate product manager", "apm",
@@ -55,6 +73,7 @@ INCLUDE_KEYWORDS = [
     "gtm", "go-to-market", "market entry",
     "brand manager", "product launch", "market access",
     "category manager", "trade marketing",
+    "marketing manager", "marketing executive",
     "operations manager", "operational excellence",
     "process excellence", "process improvement",
     "supply chain manager", "demand planning",
@@ -63,7 +82,8 @@ INCLUDE_KEYWORDS = [
     "growth manager", "growth analyst",
     "market research analyst", "market intelligence",
     "commercial excellence", "program manager",
-    "project manager",
+    "project manager", "sales executive",
+    "territory manager", "regional manager",
 ]
 
 EXCLUDE_KEYWORDS = [
@@ -132,6 +152,26 @@ def fetch_jobs(query, start=0):
         print("Error fetching '{}' start={}: {}".format(query, start, e))
         return ""
 
+def fetch_company_jobs(company, start=0):
+    # No time filter for company searches — catch all open roles
+    url = (
+        "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+        "?keywords={}&location=India&start={}"
+    ).format(requests.utils.quote(company), start)
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        return response.text
+    except Exception as e:
+        print("Error fetching company '{}': {}".format(company, e))
+        return ""
+
 def parse_jobs(html):
     jobs = []
     blocks = html.split('<div class="base-card')
@@ -173,6 +213,16 @@ def is_relevant(job):
         return False
     return True
 
+def is_relevant_company(job):
+    # For company-specific searches, only check role and location — not strict keyword match
+    title = job["title"].lower()
+    location = job["location"].lower()
+    if any(k in title for k in EXCLUDE_KEYWORDS):
+        return False
+    if not any(l in location for l in INCLUDE_LOCATIONS):
+        return False
+    return True
+
 def send_telegram(message):
     url = "https://api.telegram.org/bot{}/sendMessage".format(TELEGRAM_BOT_TOKEN)
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
@@ -190,7 +240,8 @@ def main():
     new_jobs = []
     all_urls = set()
 
-    for query in SEARCH_QUERIES:
+    # General queries
+    for query in GENERAL_QUERIES:
         for page in range(PAGES_PER_QUERY):
             start = page * 25
             print("Fetching: '{}' page {}".format(query, page + 1))
@@ -208,8 +259,26 @@ def main():
                     continue
                 if not is_relevant(job):
                     continue
-                new_jobs.append(job)
+                new_jobs.append({"job": job, "tag": "LinkedIn"})
                 seen_jobs[url] = datetime.now(timezone.utc).isoformat()
+
+    # Company-specific queries
+    for company in COMPANY_QUERIES:
+        print("Fetching company: '{}'".format(company))
+        html = fetch_company_jobs(company)
+        jobs = parse_jobs(html)
+        print("  Found {} results".format(len(jobs)))
+        for job in jobs:
+            url = job["url"]
+            if url in all_urls:
+                continue
+            all_urls.add(url)
+            if url in seen_jobs:
+                continue
+            if not is_relevant_company(job):
+                continue
+            new_jobs.append({"job": job, "tag": "Target Company"})
+            seen_jobs[url] = datetime.now(timezone.utc).isoformat()
 
     print("Total new jobs found: {}".format(len(new_jobs)))
 
@@ -221,16 +290,18 @@ def main():
     IST = timezone(timedelta(hours=5, minutes=30))
     batch_time = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
 
-    for job in new_jobs:
+    for item in new_jobs:
+        job = item["job"]
+        tag = item["tag"]
         message = (
-            "New Job Alert - LinkedIn\n\n"
+            "New Job Alert - {}\n\n"
             "Found at: {}\n\n"
             "Role: {}\n"
             "Company: {}\n"
             "Location: {}\n"
             "Posted: {}\n\n"
             "Apply here: {}"
-        ).format(batch_time, job["title"], job["company"], job["location"], job["posted"], job["url"])
+        ).format(tag, batch_time, job["title"], job["company"], job["location"], job["posted"], job["url"])
 
         success = send_telegram(message)
         if success:
