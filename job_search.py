@@ -71,7 +71,13 @@ EXCLUDE_KEYWORDS = [
 def clean(text):
     text = text or ""
     text = re.sub(r'<[^>]+>', '', text)
-    text = text.replace("&amp;", "and").replace("&", "and")
+    text = text.replace("&amp;", "and").replace("&lt;", "").replace("&gt;", "")
+    text = text.replace("&", "and").replace("|", "-").replace("#", "")
+    text = text.replace("
+", " ").replace("
+", " ")
+    # Remove non-ASCII characters
+    text = text.encode('ascii', 'ignore').decode('ascii')
     return text.strip()
 
 def load_seen_jobs():
@@ -148,6 +154,8 @@ def send_telegram(message):
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
         response = requests.post(url, json=payload, timeout=10)
+        if not response.ok:
+            print(f"Telegram error: {response.status_code} - {response.text}")
         return response.ok
     except Exception as e:
         print(f"Telegram error: {e}")
