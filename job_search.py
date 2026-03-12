@@ -3,32 +3,34 @@ import json
 import os
 import re
 from datetime import datetime, timezone, timedelta
-from urllib.parse import quote
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+ADZUNA_APP_ID = os.environ.get("ADZUNA_APP_ID")
+ADZUNA_APP_KEY = os.environ.get("ADZUNA_APP_KEY")
 SEEN_JOBS_FILE = "seen_jobs.json"
 
 SEARCH_QUERIES = [
-    "product-manager",
-    "associate-product-manager",
-    "product-analyst",
-    "business-analyst",
-    "strategy-analyst",
-    "strategy-consultant",
-    "management-consultant",
-    "gtm-manager",
-    "operations-manager",
-    "supply-chain-manager",
-    "business-development-manager",
-    "category-manager",
-    "program-manager",
-    "chief-of-staff",
-    "sales-manager",
-    "market-research-analyst",
-    "growth-analyst",
-    "consulting-analyst",
-    "commercial-excellence",
+    "product manager",
+    "associate product manager",
+    "product analyst",
+    "business analyst",
+    "strategy analyst",
+    "strategy consultant",
+    "management consultant",
+    "GTM manager",
+    "operations manager",
+    "supply chain manager",
+    "business development manager",
+    "category manager",
+    "program manager",
+    "chief of staff",
+    "sales manager",
+    "market research analyst",
+    "growth analyst",
+    "consulting analyst",
+    "commercial excellence",
+    "corporate strategy",
 ]
 
 INCLUDE_KEYWORDS = [
@@ -66,18 +68,10 @@ EXCLUDE_KEYWORDS = [
     "content writer", "graphic designer", "telecaller",
 ]
 
-INCLUDE_LOCATIONS = [
-    "bengaluru", "bangalore", "hyderabad", "mumbai",
-    "delhi", "gurugram", "gurgaon", "noida",
-    "remote", "india", "pan india", "work from home",
-    "chennai", "pune",
-]
-
 def clean(text):
     text = text or ""
     text = re.sub(r'<[^>]+>', '', text)
-    text = text.replace("&amp;", "and").replace("&lt;", "").replace("&gt;", "")
-    text = text.replace("&#39;", "'").replace("&quot;", '"').replace("&", "and")
+    text = text.replace("&amp;", "and").replace("&", "and")
     return text.strip()
 
 def load_seen_jobs():
@@ -90,86 +84,62 @@ def save_seen_jobs(seen_jobs):
     with open(SEEN_JOBS_FILE, "w") as f:
         json.dump(seen_jobs, f, indent=2)
 
-def fetch_naukri_jobs(query):
-    # Use Naukri's public search URL format
-    url = f"https://www.naukri.com/{query}-jobs-in-india"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Cache-Control": "max-age=0",
+def fetch_adzuna_jobs(query, page=1):
+    url = f"https://api.adzuna.com/v1/api/jobs/in/search/{page}"
+    params = {
+        "app_id": ADZUNA_APP_ID,
+        "app_key": ADZUNA_APP_KEY,
+        "what": query,
+        "where": "India",
+        "results_per_page": 50,
+        "max_days_old": 1,
+        "sort_by": "date",
+        "content-type": "application/json",
     }
     try:
-        response = requests.get(url, headers=headers, timeout=20)
-        print(f"  Status: {response.status_code}, Length: {len(response.text)}")
-        return response.text
+        response = requests.get(url, params=params, timeout=20)
+        print(f"  Status: {response.status_code}")
+        return response.json()
     except Exception as e:
-        print(f"Error fetching Naukri '{query}': {e}")
-        return ""
+        print(f"Error fetching Adzuna '{query}': {e}")
+        return {}
 
-def parse_naukri_html(html):
+def parse_adzuna_jobs(data):
     jobs = []
+    try:
+        for job in data.get("results", []):
+            title = clean(job.get("title", ""))
+            company = clean(job.get("company", {}).get("display_name", "Unknown"))
+            location = clean(job.get("location", {}).get("display_name", "India"))
+            url = job.get("redirect_url", "")
+            created = job.get("created", "")
 
-    # Extract JSON data embedded in Naukri's page
-    json_match = re.search(r'"jobDetails"\s*:\s*(\[[\s\S]*?\])\s*,\s*"[a-z]', html)
-    if json_match:
-        try:
-            job_list = json.loads(json_match.group(1))
-            for job in job_list:
-                title = clean(job.get("title", ""))
-                company = clean(job.get("companyName", "Unknown"))
-                location = clean(job.get("placeholders", [{}])[0].get("label", "India") if job.get("placeholders") else "India")
-                url = job.get("jdURL", "")
-                if url and not url.startswith("http"):
-                    url = "https://www.naukri.com" + url
-                posted = job.get("footerPlaceholderLabel", "Recently")
-                if title and url:
-                    jobs.append({
-                        "title": title,
-                        "company": company,
-                        "location": location,
-                        "url": url,
-                        "posted": clean(str(posted)),
-                    })
-            return jobs
-        except Exception as e:
-            print(f"  JSON parse error: {e}")
+            # Format date
+            try:
+                dt = datetime.strptime(created[:10], "%Y-%m-%d")
+                posted = dt.strftime("%d %b %Y")
+            except:
+                posted = "Recently"
 
-    # Fallback: regex parse from HTML
-    title_re = re.compile(r'title="([^"]+)"[^>]*class="[^"]*title[^"]*"', re.I)
-    company_re = re.compile(r'class="[^"]*comp-name[^"]*"[^>]*>([^<]+)<', re.I)
-    location_re = re.compile(r'class="[^"]*loc[^"]*"[^>]*>([^<]+)<', re.I)
-    url_re = re.compile(r'href="(https://www\.naukri\.com/job-listings[^"]+)"', re.I)
+            if not title or not url:
+                continue
 
-    titles = title_re.findall(html)
-    companies = company_re.findall(html)
-    locations = location_re.findall(html)
-    urls = url_re.findall(html)
-
-    for i, title in enumerate(titles):
-        if i >= len(urls):
-            break
-        jobs.append({
-            "title": clean(title),
-            "company": clean(companies[i]) if i < len(companies) else "Unknown",
-            "location": clean(locations[i]) if i < len(locations) else "India",
-            "url": urls[i],
-            "posted": "Recently",
-        })
-
+            jobs.append({
+                "title": title,
+                "company": company,
+                "location": location,
+                "url": url,
+                "posted": posted,
+            })
+    except Exception as e:
+        print(f"Parse error: {e}")
     return jobs
 
 def is_relevant(job):
     title = job["title"].lower()
-    location = job["location"].lower()
     if not any(k in title for k in INCLUDE_KEYWORDS):
         return False
     if any(k in title for k in EXCLUDE_KEYWORDS):
-        return False
-    if not any(l in location for l in INCLUDE_LOCATIONS):
         return False
     return True
 
@@ -189,10 +159,11 @@ def main():
     all_urls = set()
 
     for query in SEARCH_QUERIES:
-        print(f"Fetching Naukri: '{query}'")
-        html = fetch_naukri_jobs(query)
-        jobs = parse_naukri_html(html)
-        print(f"  Parsed {len(jobs)} jobs")
+        print(f"Fetching Adzuna: '{query}'")
+        data = fetch_adzuna_jobs(query)
+        total = data.get("count", 0)
+        jobs = parse_adzuna_jobs(data)
+        print(f"  Total available: {total}, Fetched: {len(jobs)}")
 
         for job in jobs:
             url = job["url"]
@@ -218,7 +189,7 @@ def main():
 
     for job in new_jobs:
         message = (
-            f"New Job Alert - Naukri\n\n"
+            f"New Job Alert - Adzuna\n\n"
             f"Found at: {batch_time}\n\n"
             f"Role: {job['title']}\n"
             f"Company: {job['company']}\n"
