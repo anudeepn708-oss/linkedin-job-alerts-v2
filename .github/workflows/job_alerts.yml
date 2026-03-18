@@ -27,3 +27,4 @@ jobs:
         with:
           commit_message: "Update seen jobs"
           file_pattern: seen_jobs.json
+          push_options: '--force'
