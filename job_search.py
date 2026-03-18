@@ -35,6 +35,15 @@ GENERAL_QUERIES = [
     "business development pharma India",
     "associate product manager pharma",
     "product manager medical devices",
+    # New additions
+    "strategy operations manager India",
+    "bizops lead India",
+    "business operations lead India",
+    "growth performance marketing India",
+    "product strategy associate India",
+    "assistant brand manager FMCG",
+    "management trainee FMCG India",
+    "management trainee MBA India",
 ]
 
 # Company-specific queries for target ortho/medtech companies
@@ -56,7 +65,7 @@ COMPANY_QUERIES = [
 ]
 
 PAGES_PER_QUERY = 3
-PAGES_PER_COMPANY = 1  # 1 page is enough for small companies
+PAGES_PER_COMPANY = 1
 
 INCLUDE_KEYWORDS = [
     "product manager", "associate product manager", "apm",
@@ -84,6 +93,13 @@ INCLUDE_KEYWORDS = [
     "commercial excellence", "program manager",
     "project manager", "sales executive",
     "territory manager", "regional manager",
+    # New additions
+    "bizops", "biz ops",
+    "assistant brand manager", "abm",
+    "performance marketing",
+    "strategy and operations",
+    "management trainee",
+    "chief of staff",
 ]
 
 EXCLUDE_KEYWORDS = [
@@ -92,8 +108,9 @@ EXCLUDE_KEYWORDS = [
     "avp", "evp", "svp", "cxo", "ceo", "coo", "cto", "cfo",
     "general manager", "dgm", "agm",
     "associate director", "associate vp",
-    "intern", "internship", "fresher", "trainee",
-    "chief of staff",
+    "intern", "internship", "fresher",
+    # "trainee" REMOVED — Management Trainee is a target role
+    # "chief of staff" REMOVED — good role for this profile
     "software engineer", "software developer", "developer",
     "data scientist", "machine learning", "devops", "backend",
     "frontend", "full stack", "qa engineer", "test engineer",
@@ -153,7 +170,6 @@ def fetch_jobs(query, start=0):
         return ""
 
 def fetch_company_jobs(company, start=0):
-    # No time filter for company searches — catch all open roles
     url = (
         "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
         "?keywords={}&location=India&start={}"
@@ -214,7 +230,6 @@ def is_relevant(job):
     return True
 
 def is_relevant_company(job):
-    # For company-specific searches, only check role and location — not strict keyword match
     title = job["title"].lower()
     location = job["location"].lower()
     if any(k in title for k in EXCLUDE_KEYWORDS):
