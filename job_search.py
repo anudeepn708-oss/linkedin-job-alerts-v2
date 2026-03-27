@@ -96,6 +96,14 @@ EXCLUDE_KEYWORDS = [
     "content writer", "graphic designer", "telecaller",
     "cyber", "cybersecurity", "network", "banking", "insurance",
     "channel sales", "channel partner", "influencer",
+    # Slipping through fixes
+    "engineer", "quality", "enablement",
+    "finance operations", "customer success", "foaa",
+    "it operations", "revenue operations", "sales operations engineer",
+    "obesity", "oncology", "cardiology", "neurology", "dermatology",
+    "therapeutic", "clinical", "medical affairs", "pharmacovigilance",
+    "account management", "customer experience", "cx ",
+    "global program", "global enablement",
 ]
 
 INCLUDE_LOCATIONS = [
@@ -104,6 +112,42 @@ INCLUDE_LOCATIONS = [
     "delhi", "noida", "chennai",
     "remote", "india", "pan india", "work from home",
 ]
+
+# Roles that MUST have a sector word in the title
+SECTOR_DEPENDENT_ROLES = [
+    "growth manager", "growth analyst",
+    "program manager", "project manager",
+    "business analyst", "operations manager", "operations analyst",
+    "supply chain", "demand planning",
+    "sales manager", "business development",
+    "key account manager", "category manager",
+    "brand manager", "marketing manager",
+    "market research", "commercial",
+    "process improvement", "process excellence",
+    "performance marketing",
+]
+
+# Sector words — at least one must appear in title for sector-dependent roles
+ALLOWED_SECTORS = [
+    "medtech", "med tech", "medical", "healthcare", "health care",
+    "pharma", "pharmaceutical", "diagnostics", "hospital", "clinical",
+    "fmcg", "consumer", "food", "beverage", "nutrition",
+    "wellness", "beauty", "personal care", "retail",
+    "ortho", "surgical", "implant", "device",
+]
+
+# These roles pass WITHOUT sector check — inherently cross-sector
+SECTOR_FREE_ROLES = [
+    "strategy consultant", "management consultant", "consulting analyst",
+    "associate consultant", "strategy analyst", "corporate strategy",
+    "business strategy", "operations consultant",
+    "founders office", "founder's office",
+    "bizops", "strategy and operations",
+    "business transformation",
+    "product manager", "associate product manager", "product analyst",
+    "product strategy", "product lead", "product owner",
+]
+
 
 def clean(text):
     text = text or ""
@@ -128,7 +172,7 @@ def save_seen_jobs(seen_jobs):
 def fetch_jobs(query, start=0):
     url = (
         "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
-        "?keywords={}&location=India&f_TPR=r7200&f_E=2%2C3&start={}"
+        "?keywords={}&location=India&f_TPR=r7200&f_E=2%2C3%2C4%2C6&start={}"
     ).format(requests.utils.quote(query), start)
     headers = {
         "User-Agent": (
@@ -189,12 +233,24 @@ def parse_jobs(html):
 def is_relevant(job):
     title = job["title"].lower()
     location = job["location"].lower()
+
     if not any(k in title for k in INCLUDE_KEYWORDS):
         return False
     if any(k in title for k in EXCLUDE_KEYWORDS):
         return False
     if not any(l in location for l in INCLUDE_LOCATIONS):
         return False
+
+    # Sector-free roles pass without sector check
+    if any(k in title for k in SECTOR_FREE_ROLES):
+        return True
+
+    # Sector-dependent roles need a sector word in title
+    is_sector_dependent = any(k in title for k in SECTOR_DEPENDENT_ROLES)
+    if is_sector_dependent:
+        if not any(s in title for s in ALLOWED_SECTORS):
+            return False
+
     return True
 
 def is_relevant_company(job):
