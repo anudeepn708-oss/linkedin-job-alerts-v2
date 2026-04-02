@@ -9,224 +9,213 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 SEEN_JOBS_FILE = "seen_jobs.json"
 
 # =============================================================================
-# ACCOUNT 2 — Strategy, Consulting, Sales Ops, BDM, KAM, Program Mgmt
-# Focus: Consulting firms, Pharma/Medical sales, FMCG commercial,
-#        Strategy roles, Operations, Target companies (Meril etc.)
-# Strategy: Different queries from Account 1, complementary not overlapping
+# ACCOUNT 2 — Consulting | Sales Ops | BDM/KAM (Pharma/FMCG/Medtech) |
+#             Brand Manager | Program Mgmt | Target Companies
+#
+# Philosophy:
+#   - Complementary to Account 1 — NO overlap in search queries
+#   - Consulting: ZS, EY, McKinsey, BCG, Deloitte type associate roles
+#   - Commercial: BDM/KAM strictly in pharma, medtech, FMCG, consumer
+#   - Brand: FMCG/pharma brand managers at entry/associate level
+#   - Target companies: Meril, TTK, Narang, Biorad etc. scraped directly
+#   - Sales Ops and commercial excellence — sector-free
+#   - Experience: Entry (2) + Associate (3) only
 # =============================================================================
 
 SEARCH_QUERIES = [
-    # --- Strategy & Consulting ---
-    "strategy consultant India",
-    "management consultant associate India",
-    "consulting analyst India",
+    # --- Consulting (sector-free, strong brands) ---
     "associate consultant strategy India",
-    "business strategy analyst India",
-    "corporate strategy analyst India",
-    "strategy and operations manager India",
-    "operations consultant India",
+    "decision analytics associate consultant India",
+    "strategy operations associate consultant India",
+    "management consulting analyst India",
+    "business consulting analyst India",
+    "ZS associates India",
+    "associate consultant EY India",
+    "associate consultant Deloitte India",
+    "associate consultant KPMG India",
+    "associate consultant BCG India",
+    "associate consultant McKinsey India",
 
-    # --- Sales Operations & Commercial ---
+    # --- Sales Operations & Commercial Excellence ---
     "sales operations manager India",
     "sales operations analyst India",
     "commercial excellence manager India",
-    "commercial operations India",
-    "revenue operations manager India startup",
+    "commercial operations manager India",
 
-    # --- Business Development (specific sectors) ---
-    "business development manager medtech",
-    "business development manager medical devices",
-    "business development manager pharma",
-    "business development manager healthcare",
-    "business development manager FMCG",
-    "business development manager consumer",
+    # --- BDM strictly in good sectors ---
+    "business development manager medtech India",
+    "business development manager medical devices India",
+    "business development manager pharma India",
+    "business development manager healthcare India",
+    "business development manager FMCG India",
+    "business development manager consumer India",
 
-    # --- Key Account Manager (specific sectors) ---
+    # --- KAM strictly in good sectors ---
     "key account manager pharma India",
     "key account manager medical devices India",
     "key account manager FMCG India",
     "key account manager healthcare India",
 
+    # --- Brand / Marketing (FMCG/pharma only) ---
+    "assistant brand manager FMCG India",
+    "brand manager pharma India",
+    "brand manager consumer India",
+    "associate brand manager India",
+    "trade marketing manager FMCG India",
+    "category manager FMCG India",
+
     # --- Market Access / Medical Marketing ---
+    "market access manager pharma India",
+    "medical marketing manager India",
     "product manager pharma India",
     "product manager medical devices India",
-    "market access manager pharma India",
-    "brand manager pharma India",
-    "brand manager FMCG India",
-    "assistant brand manager FMCG",
 
-    # --- Target companies direct search ---
-    "Meril Life Sciences",
-    "Meril medtech",
-    "TTK healthcare jobs",
-    "Narang medical India",
-    "Biorad medisys",
-    "Atlas surgical India",
-
-    # --- Program / Project Manager (ops-focused) ---
-    "program manager operations India",
+    # --- Program / Project Manager (ops focused) ---
     "program manager supply chain India",
-    "project manager healthcare India",
+    "program manager operations healthcare India",
     "project manager FMCG India",
+    "project manager healthcare India",
 
-    # --- Founder's Office / CoS (separate from Account 1 to catch more) ---
-    "founder office strategy India",
-    "chief of staff operations India",
-    "chief of staff consulting India",
+    # --- Target companies direct ---
+    "Meril Life Sciences",
+    "TTK healthcare India",
+    "Narang medical India",
+    "Biorad medisys India",
+    "Atlas surgical India",
+    "Siora surgicals India",
 ]
 
 PAGES_PER_QUERY = 5
-
-# Last 24 hrs — wide enough to get volume, dedup handles repeats
 TIME_FILTER = "r86400"
-
-# Entry, Associate, Mid-Senior
-EXP_FILTER = "2%2C3%2C4"
+EXP_FILTER = "2%2C3"   # Entry + Associate only
 
 # ---------------------------------------------------------------------------
-# INCLUDE keywords — title must have at least one
+# INCLUDE — title must have at least one
 # ---------------------------------------------------------------------------
 INCLUDE_KEYWORDS = [
-    # Strategy & Consulting
-    "strategy consultant", "management consultant", "consulting analyst",
-    "associate consultant", "strategy analyst", "strategy manager",
-    "strategy and operations", "corporate strategy", "business strategy",
-    "operations consultant",
-    # Sales Ops & Commercial
+    # Consulting
+    "associate consultant", "consulting analyst", "management consultant",
+    "strategy consultant", "business consultant",
+    "decision analytics", "strategy operations consultant",
+    # Sales Ops / Commercial
     "sales operations", "commercial excellence", "commercial operations",
-    "revenue operations",
-    # BDM & KAM
-    "business development manager", "business development",
-    "key account manager", "kam",
-    # Product & Brand (pharma/medtech/FMCG specific)
-    "product manager", "associate product manager",
-    "brand manager", "assistant brand manager",
-    "product analyst",
-    # Market access
+    # BDM
+    "business development manager",
+    # KAM
+    "key account manager",
+    # Brand / Category
+    "brand manager", "assistant brand manager", "associate brand manager",
+    "trade marketing", "category manager",
+    # Medical marketing / market access
     "market access", "medical marketing",
+    "product manager",
     # Program / Project
     "program manager", "project manager",
-    # Founder's office / CoS
-    "founder's office", "founders office", "chief of staff",
-    # Other ops
-    "business operations", "bizops",
-    "market research analyst",
+    # Founders / Strategy (catches target company results)
+    "founder's office", "founders office",
+    "strategy manager", "strategy analyst",
+    "bizops", "business operations",
 ]
 
 # ---------------------------------------------------------------------------
-# EXCLUDE keywords
+# EXCLUDE
 # ---------------------------------------------------------------------------
 EXCLUDE_KEYWORDS = [
-    # Too senior
+    # Seniority
     "senior", " sr.", " sr ", "lead ", "principal", "staff ",
-    "vp ", "vice president", "director", "head of", "head -",
+    "vp ", "v.p.", "vice president", "director", "head of", "head -",
     "avp", "evp", "svp", "cxo", "ceo", "coo", "cto", "cfo",
     "general manager", "deputy general manager", "dgm", "agm",
-    "associate director", "associate vp",
-    "national sales", "zonal sales", "zonal manager",
+    "associate director", "associate vp", "group manager",
+    "national manager", "cluster manager", "zonal manager",
+    "national sales", "zonal sales",
     # Too junior
     "intern", "internship", "fresher", "trainee",
-    # Wrong functions — tech/engineering
-    "software engineer", "software developer", "developer", "sde",
+    # Engineering
+    "software engineer", "software developer", "sde ", "developer",
     "data scientist", "machine learning", "devops", "backend",
-    "frontend", "full stack", "full-stack", "qa engineer",
-    "test engineer", "data engineer", "mlops", "cloud engineer",
-    "technical program", "technical project", "it project",
-    # Finance/admin
-    "accountant", "finance manager", "chartered accountant", "ca ",
-    "credit analyst", "loan officer", "underwriter", "actuary",
-    "wealth management", "equity research", "portfolio manager",
-    "fund manager", "stock", "trading", "fixed income",
-    "compliance officer", "kyc analyst", "risk analyst",
-    "insurance advisor", "claims analyst",
-    # Medical/clinical (not business roles)
+    "frontend", "full stack", "qa engineer", "test engineer",
+    "data engineer", "mlops", "cloud engineer",
+    "technical product", "technical program", "technical project",
+    "it project", "it operations",
+    # Finance/core banking
+    "accountant", "finance manager", "chartered accountant",
+    "credit analyst", "loan officer", "underwriter",
+    "equity research", "portfolio manager", "fund manager",
+    "wealth management", "stock analyst", "trading",
+    "fixed income", "compliance officer", "kyc", "risk analyst",
+    "insurance advisor", "claims",
+    # Medical/clinical (not commercial)
     "radiologist", "doctor", "physician", "nurse", "technician",
     "clinical research", "medical affairs", "pharmacovigilance",
-    "therapeutic area", "medical science liaison",
-    # Field/territory sales (too junior / wrong track)
-    "territory sales manager", "area sales manager", "asm ",
-    "field sales", "sales executive", "sales representative",
+    "medical science liaison", "msl ",
+    # Field/territory sales (wrong track)
+    "territory sales manager", "area sales manager",
+    "regional sales manager", "field sales",
+    "sales executive", "sales representative", "sales officer",
     "channel sales", "channel partner",
-    "zsm", "rsm ", "regional sales manager",
-    # Other unwanted
-    "recruiter", "hr manager", "talent acquisition", "hrbp",
-    "content writer", "graphic designer", "telecaller", "copywriter",
-    "cyber", "cybersecurity", "network engineer",
-    "influencer", "content creator",
+    "asm ", "zsm ", "rsm ",
+    # Other
+    "recruiter", "hr manager", "talent acquisition",
+    "content writer", "graphic designer", "telecaller",
+    "cybersecurity", "network engineer",
     "quality assurance", "quality control",
-    "procurement", "sourcing manager",
-    "warehouse", "driver", "logistics coordinator",
+    "procurement manager", "sourcing manager",
+    "warehouse", "logistics coordinator",
 ]
 
-# ---------------------------------------------------------------------------
-# LOCATION filter
-# ---------------------------------------------------------------------------
 INCLUDE_LOCATIONS = [
     "hyderabad", "ahmedabad", "gurugram", "gurgaon",
     "bengaluru", "bangalore", "pune", "mumbai",
     "delhi", "noida", "chennai", "india", "remote", "pan india",
 ]
 
-# ---------------------------------------------------------------------------
-# SECTOR-FREE roles: pass without needing a sector word
-# ---------------------------------------------------------------------------
+# Roles that pass with NO sector check needed
 SECTOR_FREE_ROLES = [
-    "strategy consultant", "management consultant", "consulting analyst",
-    "associate consultant", "strategy analyst", "strategy manager",
-    "strategy and operations", "corporate strategy", "business strategy",
-    "operations consultant",
-    "sales operations", "commercial excellence", "revenue operations",
-    "founder's office", "founders office", "chief of staff",
-    "business operations", "bizops",
-    "program manager",  # Account 2 allows program manager freely
+    "associate consultant", "consulting analyst", "management consultant",
+    "strategy consultant", "business consultant",
+    "decision analytics", "strategy operations consultant",
+    "sales operations", "commercial excellence", "commercial operations",
+    "founder's office", "founders office",
+    "strategy manager", "strategy analyst",
+    "bizops", "business operations",
+    "program manager",
 ]
 
-# ---------------------------------------------------------------------------
-# SECTOR-DEPENDENT roles: need a sector word in title
-# ---------------------------------------------------------------------------
+# These MUST have a sector word
 SECTOR_DEPENDENT_ROLES = [
-    "business development manager", "business development",
+    "business development manager",
     "key account manager",
-    "product manager", "associate product manager",
-    "brand manager", "assistant brand manager",
-    "market access",
+    "brand manager", "assistant brand manager", "associate brand manager",
+    "trade marketing", "category manager",
+    "market access", "medical marketing",
+    "product manager",
     "project manager",
-    "commercial operations",
-    "market research analyst",
 ]
 
 ALLOWED_SECTORS = [
     "medtech", "med tech", "medical", "healthcare", "health",
     "pharma", "pharmaceutical", "diagnostics", "hospital",
-    "fmcg", "consumer", "food", "beverage", "nutrition",
-    "wellness", "beauty", "personal care", "retail", "d2c",
     "surgical", "implant", "device", "ortho",
+    "fmcg", "consumer", "food", "beverage", "nutrition",
+    "wellness", "beauty", "personal care", "d2c", "retail",
     "ecommerce", "e-commerce", "startup", "saas", "tech",
-    "edtech", "agritech", "proptech", "supply chain",
-    "manufacturing", "industrial", "automotive",
-    "renewable", "energy", "solar",
+    "edtech", "agritech", "manufacturing", "industrial", "automotive",
+    "renewable", "energy", "solar", "supply chain",
 ]
 
-# ---------------------------------------------------------------------------
-# BLOCKED companies — pure finance/broking/insurance
-# (Consulting strategy at these is fine, but title check handles that via SECTOR_FREE)
-# ---------------------------------------------------------------------------
-BLOCKED_FINANCE_COMPANIES = [
+BLOCKED_COMPANIES = [
     "zerodha", "groww", "upstox", "angel broking", "sharekhan",
-    "motilal oswal", "iifl", "edelweiss",
-    "nse ", "bse ", "sebi",
-    "bajaj allianz", "hdfc life", "lic ", "sbi life",
-    "digit insurance", "acko",
+    "motilal oswal", "iifl", "edelweiss", "nuvama",
+    "bajaj allianz", "hdfc life", "sbi life", "lic india",
+    "digit insurance", "acko", "kotak securities",
 ]
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def clean(text):
     text = text or ""
     text = text.replace("&amp;", "and").replace("&", "and")
-    text = text.replace("<", "").replace(">", "")
+    text = re.sub(r'<[^>]+>', '', text)
     return text.strip()
 
 def make_dedup_key(title, company):
@@ -257,8 +246,8 @@ def fetch_jobs(query, start=0):
         )
     }
     try:
-        response = requests.get(url, headers=headers, timeout=20)
-        return response.text
+        resp = requests.get(url, headers=headers, timeout=20)
+        return resp.text
     except Exception as e:
         print("Fetch error '{}': {}".format(query, e))
         return ""
@@ -274,7 +263,6 @@ def parse_jobs(html):
         r'<span[^>]*class="[^"]*job-search-card__location[^"]*"[^>]*>\s*([^<]+)\s*</span>', re.I)
     url_re = re.compile(
         r'<a[^>]*class="[^"]*base-card__full-link[^"]*"[^>]*href="([^"]+)"', re.I)
-
     for block in blocks:
         title_m = title_re.search(block)
         url_m = url_re.search(block)
@@ -290,10 +278,6 @@ def parse_jobs(html):
         })
     return jobs
 
-def is_blocked_company(company):
-    c = company.lower()
-    return any(bc in c for bc in BLOCKED_FINANCE_COMPANIES)
-
 def is_relevant(job):
     title = job["title"].lower()
     location = job["location"].lower()
@@ -305,18 +289,14 @@ def is_relevant(job):
         return False
     if not any(l in location for l in INCLUDE_LOCATIONS):
         return False
-    if is_blocked_company(company):
+    if any(bc in company for bc in BLOCKED_COMPANIES):
         return False
 
-    # Sector-free roles pass directly
     if any(k in title for k in SECTOR_FREE_ROLES):
         return True
 
-    # Sector-dependent roles need sector word
     if any(k in title for k in SECTOR_DEPENDENT_ROLES):
-        if any(s in title for s in ALLOWED_SECTORS):
-            return True
-        return False
+        return any(s in title for s in ALLOWED_SECTORS)
 
     return True
 
@@ -324,10 +304,10 @@ def send_telegram(message):
     url = "https://api.telegram.org/bot{}/sendMessage".format(TELEGRAM_BOT_TOKEN)
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        if not response.ok:
-            print("Telegram error: {} - {}".format(response.status_code, response.text[:200]))
-        return response.ok
+        resp = requests.post(url, json=payload, timeout=10)
+        if not resp.ok:
+            print("Telegram error: {}".format(resp.text[:200]))
+        return resp.ok
     except Exception as e:
         print("Telegram error: {}".format(e))
         return False
@@ -338,14 +318,11 @@ def main():
     seen_keys = set(seen_jobs.keys())
 
     for query in SEARCH_QUERIES:
-        found_in_query = 0
+        found = 0
         for page in range(PAGES_PER_QUERY):
-            start = page * 25
-            print("Fetching: '{}' page {}".format(query, page + 1))
-            html = fetch_jobs(query, start=start)
+            html = fetch_jobs(query, start=page * 25)
             jobs = parse_jobs(html)
             if not jobs:
-                print("  No results on page {}, stopping query.".format(page + 1))
                 break
             for job in jobs:
                 key = make_dedup_key(job["title"], job["company"])
@@ -355,37 +332,24 @@ def main():
                 if not is_relevant(job):
                     continue
                 new_jobs.append(job)
-                found_in_query += 1
+                found += 1
                 seen_jobs[key] = datetime.now(timezone.utc).isoformat()
-        print("  → {} new relevant jobs from this query".format(found_in_query))
+        print("'{}' → {} new".format(query, found))
 
-    print("\nTotal new jobs found: {}".format(len(new_jobs)))
-
+    print("\nTotal new: {}".format(len(new_jobs)))
     if not new_jobs:
-        print("No new matching jobs found.")
         save_seen_jobs(seen_jobs)
         return
 
     IST = timezone(timedelta(hours=5, minutes=30))
     batch_time = datetime.now(IST).strftime("%d %b %Y, %I:%M %p IST")
 
-    sent = 0
     for job in new_jobs:
-        message = (
-            "<b>{}</b> | {}\n"
-            "{}\n"
-            "{}\n\n"
-            "{}"
-        ).format(job["title"], job["company"], job["location"], batch_time, job["url"])
-
-        success = send_telegram(message)
-        if success:
-            sent += 1
+        msg = "<b>[A2] {}</b> | {}\n{}\n{}\n\n{}".format(
+            job["title"], job["company"], job["location"], batch_time, job["url"])
+        if send_telegram(msg):
             print("Sent: {} @ {}".format(job["title"], job["company"]))
-        else:
-            print("Failed: {}".format(job["title"]))
 
-    print("\nSent {}/{} jobs.".format(sent, len(new_jobs)))
     save_seen_jobs(seen_jobs)
     print("Done.")
 
